@@ -23,7 +23,7 @@
 #define PIN_DIR_SWITCH 15
 
 // Complementary filter constant (0..1). Higher trusts gyro more.
-static const float COMP_ALPHA = 0.97f;
+static const float COMP_ALPHA = 0.985f;
 // Fixed control loop period (seconds/us)
 static const uint32_t CONTROL_PERIOD_US = 5000; // 200 Hz
 static const float    CONTROL_PERIOD_S  = 0.005f;
