@@ -2,12 +2,10 @@
 #include <math.h>
 
 // ==== Pin mapping (UGOKU One assumed) ====
-// MD1: IN1 = GPIO32, IN2 = GPIO33
-// MD2: IN1 = GPIO5,  IN2 = GPIO13
-static const int MD1_IN1 = 32;
-static const int MD1_IN2 = 33;
-static const int MD2_IN1 = 5;
-static const int MD2_IN2 = 13;
+static const int MD1_IN1 = 19;
+static const int MD1_IN2 = 18;
+static const int MD2_IN1 = 17;
+static const int MD2_IN2 = 16;
 
 // ==== PWM settings ====
 static const int PWM_FREQ = 20000; // Hz
