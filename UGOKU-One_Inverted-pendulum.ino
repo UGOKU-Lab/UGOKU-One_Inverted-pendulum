@@ -41,10 +41,10 @@ static const float ERROR_DEADBAND = 0.5f;
 
 // ===== IMU axis/sign quick toggles =====
 // If pitch方向や角速度の符号が合わない場合はここを変更
-// Accel -> tilt angle around X-axis (deg): use ay vs az
-#define PITCH_FROM_ACCEL(ax, ay, az) (atan2f((ay), (az)) * 180.0f / PI)
-// Gyro -> tilt rate around X-axis (deg/s)
-#define PITCH_RATE_FROM_GYRO(gx, gy, gz)  ( (gx) )
+// Accel -> pitch tilt angle (deg)
+#define PITCH_FROM_ACCEL(ax, ay, az) (atan2f((ax), (az)) * 180.0f / PI)
+// Gyro -> pitch rate (deg/s)
+#define PITCH_RATE_FROM_GYRO(gx, gy, gz)  ( -(gy) )
 
 // UGOKU Pad channels for tuning
 // Use the default sample’s sticks/sliders to adjust gains:
@@ -96,7 +96,7 @@ static float lastErr = 0.0f;
 // Telemetry baseline (deg): measured at startup so upright displays 90 on ch20
 static float telemetryZeroDeg = 0.0f;
 // Gyro bias (deg/s) calibrated at startup
-static float gyroBiasX = 0.0f;
+static float gyroBiasPitch = 0.0f;
 
 // ch5 absolute trim: 90=>0° in 0..180 profile
 
@@ -139,7 +139,7 @@ void setup() {
 
   // Rough initial pitch estimation from accelerometer (robot upright & still recommended)
   float ax, ay, az; float sum = 0; int n = 60;
-  float gx, gy, gz; float gxSum = 0; int ng = 0;
+  float gx, gy, gz; float gPitchSum = 0; int ng = 0;
   for (int i = 0; i < n; ++i) {
     if (IMU.accelerationAvailable()) {
       IMU.readAcceleration(ax, ay, az);
@@ -148,13 +148,13 @@ void setup() {
     }
     if (IMU.gyroscopeAvailable()) {
       IMU.readGyroscope(gx, gy, gz);
-      gxSum += gx;
+      gPitchSum += PITCH_RATE_FROM_GYRO(gx, gy, gz);
       ng++;
     }
     delay(5);
   }
   if (n > 0) pitchDeg = sum / (float)n;
-  if (ng > 0) gyroBiasX = gxSum / (float)ng; else gyroBiasX = 0.0f;
+  if (ng > 0) gyroBiasPitch = gPitchSum / (float)ng; else gyroBiasPitch = 0.0f;
   // Use the initial estimate as telemetry zero so upright shows 90 on the Pad
   telemetryZeroDeg = pitchDeg;
   lastTickUs = micros();
@@ -264,14 +264,13 @@ void loop() {
   if (haveGyr) IMU.readGyroscope(gx, gy, gz);
 
   // Estimate pitch via complementary filter
-  // Use gy (deg/s) as pitch rate around Y; tune axes if needed on your build
   float pitchAcc = pitchDeg; // fallback
   if (haveAcc) {
     pitchAcc = PITCH_FROM_ACCEL(ax, ay, az);
   }
-  // Bias-corrected gyro rate around X-axis
-  float rateX = haveGyr ? (PITCH_RATE_FROM_GYRO(gx, gy, gz) - gyroBiasX) : 0.0f;
-  float pitchGy = pitchDeg + (rateX * dt);
+  // Bias-corrected gyro pitch rate (deg/s)
+  float pitchRate = haveGyr ? (PITCH_RATE_FROM_GYRO(gx, gy, gz) - gyroBiasPitch) : 0.0f;
+  float pitchGy = pitchDeg + (pitchRate * dt);
   pitchDeg = COMP_ALPHA * pitchGy + (1.0f - COMP_ALPHA) * pitchAcc;
 
   // Motor arming gate: do not drive before Pad connects
@@ -306,7 +305,6 @@ void loop() {
   // Derivative from gyro rate improves noise immunity
   float dTerm = 0.0f;
   if (haveGyr) {
-    float pitchRate = rateX; // deg/s (bias-corrected)
     dTerm = -Kd * pitchRate; // negative sign: if falling forward (rate>0), apply braking
   }
   lastErr = err;
