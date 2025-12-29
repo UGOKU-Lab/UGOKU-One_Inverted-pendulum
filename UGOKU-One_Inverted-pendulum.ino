@@ -11,16 +11,14 @@
 #include <Wire.h>
 #include <math.h>
 // ========= Configuration =========
-// Motor direction correction (set to -1 to invert a side if needed)
-#define MD1_DIR  (1)
-#define MD2_DIR  (1)
-
 // On-board LED debug (LOW=ON). IO2 for forward, IO4 for backward.
 #define PIN_LED_FWD  2
 #define PIN_LED_BWD  4
 
-// Slide switch for motor direction toggle (IO15). HIGH=normal, LOW=invert
-#define PIN_DIR_SWITCH 15
+// Per-motor direction switches (ESP32 GPIO34/35 are input-only; no internal pullups)
+// Wire with external pull-up/down so the pin is not floating.
+#define PIN_MD1_DIR_SWITCH 34
+#define PIN_MD2_DIR_SWITCH 35
 
 // Complementary filter constant (0..1). Higher trusts gyro more.
 static const float COMP_ALPHA = 0.985f;
@@ -124,8 +122,9 @@ void setup() {
   digitalWrite(PIN_LED_FWD, HIGH); // OFF (LOW=ON)
   digitalWrite(PIN_LED_BWD, HIGH); // OFF
 
-  // Direction switch
-  pinMode(PIN_DIR_SWITCH, INPUT_PULLUP);
+  // Per-motor direction switches (external pull-up/down required)
+  pinMode(PIN_MD1_DIR_SWITCH, INPUT);
+  pinMode(PIN_MD2_DIR_SWITCH, INPUT);
 
   // IMU init
   if (!IMU.begin()) {
@@ -356,12 +355,13 @@ void loop() {
     digitalWrite(PIN_LED_BWD, HIGH);
   }
 
-  // Direction switch factor (HIGH=normal, LOW=invert)
-  int switchFactor = (digitalRead(PIN_DIR_SWITCH) == HIGH) ? 1 : -1;
+  // Per-motor direction factors (HIGH=normal, LOW=invert)
+  int md1SwitchFactor = (digitalRead(PIN_MD1_DIR_SWITCH) == HIGH) ? 1 : -1;
+  int md2SwitchFactor = (digitalRead(PIN_MD2_DIR_SWITCH) == HIGH) ? 1 : -1;
 
   // Drive both wheels same direction to balance
-  MotorDriver_setSpeed(MD1, (float)(MD1_DIR * switchFactor) * u);
-  MotorDriver_setSpeed(MD2, (float)(MD2_DIR * switchFactor) * u);
+  MotorDriver_setSpeed(MD1, (float)(md1SwitchFactor) * u);
+  MotorDriver_setSpeed(MD2, (float)(md2SwitchFactor) * u);
 
   // Send telemetry at ~50Hz
   uint32_t nowMs = millis();
